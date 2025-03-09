@@ -5,6 +5,7 @@ use filters::{DirEntryFilter, MinimumSizeFilter, PathExtensionFilter};
 pub mod dirmon;
 pub mod direntrydb;
 pub mod filters;
+pub mod probe;
 
 fn main() {
     let args: Vec<String> = env::args().collect();

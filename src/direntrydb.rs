@@ -1,10 +1,12 @@
 use std::{
     collections::HashMap,
-    fs::{metadata, DirEntry},
+    fs::{self, metadata, DirEntry},
     os::unix::fs::MetadataExt,
     path::PathBuf,
     result::Result
 };
+
+use crate::probe::probe_file;
 
 #[derive(Debug)]
 pub struct DirEntryDatabase {
@@ -12,10 +14,10 @@ pub struct DirEntryDatabase {
 }
 
 #[derive(Debug)]
-struct DirEntryAttributes {
+pub struct DirEntryAttributes {
     pub path: PathBuf,
     pub size: u64,
-    pub compressed: Option<bool>,
+    pub compressed: bool,
     pub in_progress: Option<bool>,
 }
 
@@ -29,24 +31,58 @@ impl DirEntryDatabase {
     pub fn upsert_direntry(&mut self, direntry: &DirEntry) -> Result<(), std::io::Error> {
         match DirEntryAttributes::new(direntry) {
             Ok(attr) => {
-                self.entries.insert(direntry.path(), attr);
+                if let Some(file_name) = direntry.path().file_name() {
+                    self.entries.insert(PathBuf::from(file_name), attr);
+                }
                 Ok(())
             },
             Err(err) => Err(err),
         }
     }
+
+    pub fn iter(&self) -> impl Iterator<Item=&DirEntryAttributes> {
+        self.entries.values()
+    }
 }
 
 impl DirEntryAttributes {
     pub fn new(direntry: &DirEntry) -> Result<DirEntryAttributes, std::io::Error> {
-        match metadata(direntry.path()) {
+        let path = direntry.path();
+        match metadata(&path) {
             Ok(fi) => Ok(DirEntryAttributes {
-                path: PathBuf::from(direntry.path()),
+                path: PathBuf::from(&path),
                 size: fi.size(),
-                compressed: None,
-                in_progress: None,
+                compressed: DirEntryAttributes::is_compressed(&path),
+                in_progress: DirEntryAttributes::is_in_progress(&path),
             }),
             Err(err) => Err(err),
+        }
+    }
+
+    fn is_in_progress(_path: &PathBuf) -> Option<bool> {
+        None
+    }
+
+    fn is_compressed(path: &PathBuf) -> bool {
+        if let Some(stem) = path.file_stem() {
+            let mut compressed_path = path.clone();
+            compressed_path.set_file_name(&stem);
+            compressed_path.set_extension("hvc1.mp4");
+            match fs::exists(&compressed_path) {
+                Ok(exists) => match exists {
+                    true => match probe_file(&compressed_path) {
+                        Ok(probe) => {
+                            dbg!(&compressed_path, &probe);
+                            probe.video_codec == "hevc" && probe.video_codec_tag == "hvc1"
+                        },
+                        Err(_) => false,
+                    },
+                    false => false,
+                },
+                Err(_) => false,
+            }
+        } else {
+            false
         }
     }
 }
