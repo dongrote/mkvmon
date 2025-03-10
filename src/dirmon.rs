@@ -1,8 +1,10 @@
+use std::ffi::OsString;
 use std::fs;
 use std::path::PathBuf;
 
 use crate::direntrydb::DirEntryDatabase;
 use crate::filters::DirEntryFilter;
+use crate::transcoder::transcode_hevc_hvc1;
 
 #[derive(Debug)]
 pub struct DirectoryMonitor {
@@ -39,5 +41,47 @@ impl DirectoryMonitor {
                 }
             }
         }
+
+        for entry in self.db.iter().filter(|e| !e.compressed) {
+            let working_path = DirectoryMonitor::create_working_path(&entry.path);
+            let destination_path = DirectoryMonitor::create_destination_path(&entry.path);
+            if let Ok(w_exists) = fs::exists(&working_path) {
+                if w_exists {
+                    println!("Working path already exists; skipping {:?}", &entry.path);
+                    continue;
+                }
+            }
+
+            if let Ok(d_exists) = fs::exists(&destination_path) {
+                if d_exists {
+                    println!("Destination path already exists; skipping {:?}", &entry.path);
+                    continue;
+                }
+            }
+
+            println!("transcoding {:?} => {:?}", &entry.path, &working_path);
+            if let Ok(_) = transcode_hevc_hvc1(&entry.path, &working_path) {
+                println!("fs::rename({:?}, {:?})", &working_path, &destination_path);
+                let _ = fs::rename(&working_path, &destination_path);
+            }
+        }
+    }
+
+    fn create_destination_path(src: &PathBuf) -> PathBuf {
+        let mut dst = PathBuf::from(src);
+        dst.set_extension("hvc1.mp4");
+        dst
+    }
+
+    fn create_working_path(src: &PathBuf) -> PathBuf {
+        let mut path = PathBuf::from(src);
+        if let Some(stem) = path.file_stem() {
+            let mut hidden_stem = OsString::from(".");
+            hidden_stem.push(stem);
+            path.set_file_name(hidden_stem);
+            path.set_extension("hvc1.mp4");
+        }
+
+        path
     }
 }

@@ -6,6 +6,7 @@ pub mod dirmon;
 pub mod direntrydb;
 pub mod filters;
 pub mod probe;
+pub mod transcoder;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
