@@ -1,6 +1,6 @@
 use std::{env, path::PathBuf};
 use dirmon::DirectoryMonitor;
-use filters::{DirEntryFilter, MinimumSizeFilter, PathExtensionFilter};
+use filters::{DirEntryFilter, PathExtensionFilter, NotFilter, VideoCodecFilter};
 
 pub mod dirmon;
 pub mod direntrydb;
@@ -18,13 +18,12 @@ fn main() {
 
     let filters: Vec<Box<dyn DirEntryFilter>> = vec![
         Box::new(PathExtensionFilter::new("mkv")),
-        Box::new(MinimumSizeFilter::new(1024)),
+        Box::new(NotFilter::new(Box::new(VideoCodecFilter::new("hevc", "hvc1")))),
     ];
     let mut mon = DirectoryMonitor::new();
     match mon.validate(&args[1]) {
         true => {
-            mon.monitor(&PathBuf::from(&args[1]), &filters);
-            dbg!(mon);
+            let _ = mon.monitor(&PathBuf::from(&args[1]), &filters);
         },
         false => println!("Path '{}' is not a directory.", &args[1]),
     }
