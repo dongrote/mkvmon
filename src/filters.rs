@@ -1,6 +1,6 @@
 use std::fs;
 
-use crate::{direntrydb, probe::probe_file};
+use crate::probe::probe_file;
 
 pub trait DirEntryFilter {
     fn filter(&self, direntry: &fs::DirEntry) -> bool;
