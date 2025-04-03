@@ -1,9 +1,10 @@
+use std::path::Path;
 use std::fs;
 
 use crate::probe::probe_file;
 
-pub trait DirEntryFilter {
-    fn filter(&self, direntry: &fs::DirEntry) -> bool;
+pub trait PathFilter {
+    fn filter(&self, path: &Path) -> bool;
 }
 
 pub struct PathExtensionFilter {
@@ -20,7 +21,7 @@ pub struct VideoCodecFilter {
 }
 
 pub struct NotFilter {
-    filter: Box<dyn DirEntryFilter>,
+    filter: Box<dyn PathFilter>,
 }
 
 impl PathExtensionFilter {
@@ -49,16 +50,16 @@ impl VideoCodecFilter {
 }
 
 impl NotFilter {
-    pub fn new(filter: Box::<dyn DirEntryFilter>) -> Self {
+    pub fn new(filter: Box::<dyn PathFilter>) -> Self {
         NotFilter {
             filter,
         }
     }
 }
 
-impl DirEntryFilter for PathExtensionFilter {
-    fn filter(&self, direntry: &fs::DirEntry) -> bool {
-        if let Some(ext) = direntry.path().extension() {
+impl PathFilter for PathExtensionFilter {
+    fn filter(&self, path: &Path) -> bool {
+        if let Some(ext) = path.extension() {
             *ext == *self.extension
         } else {
             false
@@ -66,9 +67,9 @@ impl DirEntryFilter for PathExtensionFilter {
     }
 }
 
-impl DirEntryFilter for MinimumSizeFilter {
-    fn filter(&self, direntry: &fs::DirEntry) -> bool {
-        if let Ok(fi) = direntry.metadata() {
+impl PathFilter for MinimumSizeFilter {
+    fn filter(&self, path: &Path) -> bool {
+        if let Ok(fi) = fs::metadata(path) {
             fi.len() >= self.minimum_size
         } else {
             false
@@ -76,17 +77,17 @@ impl DirEntryFilter for MinimumSizeFilter {
     }
 }
 
-impl DirEntryFilter for VideoCodecFilter {
-    fn filter(&self, direntry: &fs::DirEntry) -> bool {
-        match probe_file(&direntry.path()) {
+impl PathFilter for VideoCodecFilter {
+    fn filter(&self, path: &Path) -> bool {
+        match probe_file(path) {
             Ok(metadata) => metadata.video_codec == self.video_codec && metadata.video_codec_tag == self.video_codec_tag,
             Err(_) => false,
         }
     }
 }
 
-impl DirEntryFilter for NotFilter {
-    fn filter(&self, direntry: &fs::DirEntry) -> bool {
-        !self.filter.filter(direntry)
+impl PathFilter for NotFilter {
+    fn filter(&self, path: &Path) -> bool {
+        !self.filter.filter(path)
     }
 }

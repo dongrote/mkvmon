@@ -1,5 +1,5 @@
 use std::error::Error;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::io;
 use std::process::Command;
 use serde::{Deserialize, Serialize};
@@ -38,7 +38,7 @@ struct FFProbeJsonStream {
     pub pix_fmt: String,
 }
 
-pub fn probe_file(path: &PathBuf) -> Result<AVProbeMetadata, Box<dyn Error>> { 
+pub fn probe_file(path: &Path) -> Result<AVProbeMetadata, Box<dyn Error>> { 
     let output = Command::new("ffprobe")
         .args([
             &PathBuf::from("-of"),
