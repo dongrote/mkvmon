@@ -4,10 +4,11 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 use std::process::Stdio;
-use std::sync::mpsc::{Receiver, RecvTimeoutError};
+use std::sync::{Arc, Mutex};
+use std::thread;
 use std::time::Duration;
 
-pub fn transcode_hevc_hvc1(rx: &Receiver<i16>, src: &PathBuf, dst: &PathBuf) -> Result<(), Box<dyn Error>> {
+pub fn transcode_hevc_hvc1(stop: Arc<Mutex<bool>>, src: &PathBuf, dst: &PathBuf) -> Result<(), Box<dyn Error>> {
     let mut retval = Ok(());
     let mut cleanup_dst = false;
     let mut child = Command::new("ffmpeg")
@@ -40,15 +41,14 @@ pub fn transcode_hevc_hvc1(rx: &Receiver<i16>, src: &PathBuf, dst: &PathBuf) -> 
                     retval = Err(Box::new(io::Error::new(io::ErrorKind::Other, "transcode error")));
                     cleanup_dst = true;
                 }
-
                 break;
             } else {
-                if let Err(e) = rx.recv_timeout(Duration::new(1, 0)) {
-                    if RecvTimeoutError::Disconnected == e {
-                        let _ = child.kill();
-                        cleanup_dst = true;
-                    }
-                } else {
+                let abort = {
+                    let s = stop.lock().unwrap();
+                    *s
+                };
+
+                if abort {
                     let _ = child.kill();
                     cleanup_dst = true;
                 }
@@ -57,6 +57,8 @@ pub fn transcode_hevc_hvc1(rx: &Receiver<i16>, src: &PathBuf, dst: &PathBuf) -> 
             println!("child.try_wait() failed!");
             break;
         }
+
+        thread::sleep(Duration::from_millis(100));
     }
 
     if cleanup_dst {
