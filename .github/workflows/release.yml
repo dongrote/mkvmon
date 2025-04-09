@@ -1,28 +1,23 @@
-# .github/workflows/build.yml
-name: Create and publish a binary
+# .github/workflows/release.yml
 
 on:
-  push:
-    branches: [master]
-    # Publish semver tags as releases.
-    tags: [ 'v*.*.*' ]
+  release:
+    types: [created]
 
 jobs:
-  build:
-    name: Build
+  release:
+    name: release ${{ matrix.target }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [x86_64-pc-windows-gnu, x86_64-unknown-linux-musl]
     steps:
       - uses: actions/checkout@master
-      - name: Rust Release Binary
-        id: compile
+      - name: Compile and release
         uses: rust-build/rust-build.action@v1.4.5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          RUSTTARGET: x86_64-unknown-linux-musl
-          UPLOAD_MODE: release
-      - name: Upload artifact
-        uses: actions/upload-artifact@v3.1.0
-        with:
-          name: Binary
-          path: |
-            ${{ steps.compile.outputs.BUILT_ARCHIVE }}
-            ${{ steps.compile.outputs.BUILT_CHECKSUM }}
+          RUSTTARGET: ${{ matrix.target }}
+          EXTRA_FILES: "README.md LICENSE"
