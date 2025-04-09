@@ -43,18 +43,31 @@ impl WorkQueue {
         let work_path = WorkQueue::work_path(&path);
         let dst_path = WorkQueue::destination_path(&path);
 
+        if WorkQueue::file_not_exists(&path) {
+            // this is a special case wherein a file has been
+            // removed after it was enqueued
+            println!("{:?} doesn't exist anymore; skipping", &path);
+            return;
+        }
+
         if WorkQueue::file_exists(&work_path) {
+            println!("{:?} is already being transcoded; skipping", &work_path);
             return;
         }
 
         if WorkQueue::file_exists(&dst_path) {
+            println!("{:?} has already been transcoded; skipping", &dst_path);
             return;
         }
 
         println!("{} transcoding {:?}", now_string(), &path);
-        if let Ok(_) = transcode_hevc_hvc1(Arc::clone(&self.stop), &path, &work_path) {
-            let _ = fs::rename(&work_path, &dst_path);
-        }
+        match transcode_hevc_hvc1(Arc::clone(&self.stop), &path, &work_path) {
+            Ok(_) => match fs::rename(&work_path, &dst_path) {
+                Ok(_) => (),
+                Err(err) => println!("rename error: {:?}", err),
+            },
+            Err(err) => println!("transcode error: {:?}", err),
+        };
     }
 
     fn destination_path(src: &PathBuf) -> PathBuf {
@@ -73,6 +86,10 @@ impl WorkQueue {
         }
 
         path
+    }
+
+    fn file_not_exists(path: &PathBuf) -> bool {
+        !WorkQueue::file_exists(path)
     }
 
     fn file_exists(path: &PathBuf) -> bool {
