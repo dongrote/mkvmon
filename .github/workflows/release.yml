@@ -3,7 +3,7 @@ name: Create and publish a binary
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     # Publish semver tags as releases.
     tags: [ 'v*.*.*' ]
 
